@@ -1,0 +1,14 @@
+{
+  "name": "blitz-arena",
+  "version": "1.0.0",
+  "description": "Real-time 1v1 multiplayer browser arena battle game",
+  "scripts": {
+    "start": "cd server && node server.js",
+    "dev": "cd server && node --watch server.js",
+    "install:server": "cd server && npm install",
+    "postinstall": "cd server && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
