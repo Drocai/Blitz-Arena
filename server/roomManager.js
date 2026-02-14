@@ -91,6 +91,10 @@ class RoomManager {
     const player = room.players.get(playerId);
     if (!player) return;
 
+    // Validate inputs
+    if (typeof x !== 'number' || typeof z !== 'number' || typeof rotation !== 'number' ||
+        !isFinite(x) || !isFinite(z) || !isFinite(rotation)) return;
+
     // Clamp to arena bounds
     const hw = CONFIG.ARENA_WIDTH / 2 - CONFIG.PLAYER_RADIUS;
     const hd = CONFIG.ARENA_DEPTH / 2 - CONFIG.PLAYER_RADIUS;
@@ -107,6 +111,10 @@ class RoomManager {
 
     const player = room.players.get(playerId);
     if (!player) return null;
+
+    // Validate direction inputs
+    if (typeof dirX !== 'number' || typeof dirZ !== 'number' ||
+        !isFinite(dirX) || !isFinite(dirZ)) return null;
 
     const now = Date.now();
     if (now - player.lastFireTime < CONFIG.FIRE_COOLDOWN) return null;
