@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Blitz Arena – Valentine's Showdown</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #1a0011;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #game-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+    }
+
+    /* --- HUD Overlay --- */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    #scoreboard {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 24px;
+      padding: 12px 20px;
+    }
+
+    .score-block {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .score-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      opacity: 0.9;
+    }
+
+    .score-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      min-width: 28px;
+      text-align: center;
+    }
+
+    .score-block.cupid_prime { border-left: 3px solid #FF69B4; }
+    .score-block.dark_cupid { border-left: 3px solid #8B00FF; }
+    .score-block.local { box-shadow: 0 0 12px rgba(255,105,180,0.3); }
+
+    #timer {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.8);
+      padding: 4px 12px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 6px;
+      min-width: 60px;
+    }
+
+    #timer.warning { color: #FF4444; animation: pulse 0.5s ease infinite alternate; }
+
+    @keyframes pulse { to { opacity: 0.6; } }
+
+    /* --- Connection Status --- */
+    #connection-status {
+      position: fixed;
+      top: 8px;
+      right: 12px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.6);
+      padding: 4px 10px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 12px;
+    }
+
+    #conn-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #888;
+      transition: background 0.3s;
+    }
+    #conn-dot.connected { background: #4CAF50; }
+    #conn-dot.disconnected { background: #F44336; }
+    #conn-dot.connecting { background: #FFC107; animation: pulse 0.8s ease infinite alternate; }
+
+    /* --- Center Messages --- */
+    #center-msg {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    #center-msg.visible { opacity: 1; }
+
+    #center-msg h1 {
+      font-size: 48px;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(255,105,180,0.6);
+      margin-bottom: 8px;
+    }
+
+    #center-msg p {
+      font-size: 18px;
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* --- Match End Overlay --- */
+    #match-end-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px);
+    }
+
+    #match-end-overlay.visible { display: flex; }
+
+    #match-result {
+      font-size: 42px;
+      font-weight: 800;
+      color: #FFD700;
+      text-shadow: 0 0 30px rgba(255,215,0,0.5);
+      margin-bottom: 12px;
+    }
+
+    #match-scores-final {
+      font-size: 20px;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 24px;
+    }
+
+    #rematch-btn {
+      pointer-events: auto;
+      padding: 14px 36px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #FF69B4, #8B00FF);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px rgba(255,105,180,0.4);
+    }
+
+    #rematch-btn:hover { transform: scale(1.05); }
+    #rematch-btn:active { transform: scale(0.96); }
+
+    /* --- Waiting Screen --- */
+    #waiting-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(26,0,17,0.95);
+    }
+
+    #waiting-screen.hidden { display: none; }
+
+    #waiting-screen h1 {
+      font-size: 36px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #FF69B4, #FFD700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 16px;
+    }
+
+    #waiting-screen p {
+      font-size: 16px;
+      color: rgba(255,255,255,0.6);
+      margin-bottom: 8px;
+    }
+
+    #room-link {
+      font-size: 13px;
+      color: #FF69B4;
+      background: rgba(255,105,180,0.1);
+      padding: 8px 16px;
+      border-radius: 8px;
+      margin-top: 12px;
+      word-break: break-all;
+      max-width: 90vw;
+      cursor: pointer;
+      pointer-events: auto;
+      border: 1px solid rgba(255,105,180,0.2);
+    }
+
+    .waiting-dots::after {
+      content: '';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+    }
+
+    /* --- Mobile Controls --- */
+    #mobile-controls {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 40vh;
+      z-index: 12;
+      display: none;
+      pointer-events: none;
+    }
+
+    #mobile-controls.active {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 20px 30px;
+    }
+
+    .joystick-zone {
+      width: 140px;
+      height: 140px;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .joystick-zone canvas {
+      opacity: 0.5;
+    }
+
+    #fire-btn {
+      pointer-events: auto;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,105,180,0.6);
+      background: rgba(255,105,180,0.2);
+      color: #FF69B4;
+      font-size: 24px;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #fire-btn:active {
+      background: rgba(255,105,180,0.5);
+      transform: scale(0.9);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="scoreboard"></div>
+  </div>
+
+  <div id="connection-status">
+    <div id="conn-dot" class="connecting"></div>
+    <span id="conn-text">Connecting</span>
+  </div>
+
+  <div id="center-msg">
+    <h1 id="center-title"></h1>
+    <p id="center-sub"></p>
+  </div>
+
+  <!-- Match End -->
+  <div id="match-end-overlay">
+    <div id="match-result"></div>
+    <div id="match-scores-final"></div>
+    <button id="rematch-btn">♥ REMATCH ♥</button>
+  </div>
+
+  <!-- Waiting -->
+  <div id="waiting-screen">
+    <h1>♥ BLITZ ARENA ♥</h1>
+    <p>Waiting for opponent<span class="waiting-dots"></span></p>
+    <div id="room-link"></div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls">
+    <div id="move-zone" class="joystick-zone"></div>
+    <button id="fire-btn">♥</button>
+    <div id="aim-zone" class="joystick-zone"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/shared/gameConfig.js"></script>
+  <script src="ui.js"></script>
+  <script src="renderer.js"></script>
+  <script src="multiplayer.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
