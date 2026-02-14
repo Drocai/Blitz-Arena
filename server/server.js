@@ -52,7 +52,38 @@ function broadcast(roomId, data, excludeId = null) {
   }
 }
 
+// --- Rate Limiting ---
+const MAX_MESSAGES_PER_SECOND = 60;
+const connectionsByIp = new Map();
+const MAX_CONNECTIONS_PER_IP = 4;
+
+function getRateLimiter(ws) {
+  if (!ws._rateLimiter) {
+    ws._rateLimiter = { count: 0, resetTime: Date.now() + 1000 };
+  }
+  const rl = ws._rateLimiter;
+  if (Date.now() > rl.resetTime) {
+    rl.count = 0;
+    rl.resetTime = Date.now() + 1000;
+  }
+  return rl;
+}
+
 wss.on('connection', (ws, req) => {
+  // Per-IP connection limiting
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress;
+  const ipCount = (connectionsByIp.get(ip) || 0) + 1;
+  if (ipCount > MAX_CONNECTIONS_PER_IP) {
+    ws.close(1008, 'Too many connections');
+    return;
+  }
+  connectionsByIp.set(ip, ipCount);
+  ws.on('close', () => {
+    const count = (connectionsByIp.get(ip) || 1) - 1;
+    if (count <= 0) connectionsByIp.delete(ip);
+    else connectionsByIp.set(ip, count);
+  });
+
   const params = url.parse(req.url, true).query;
   const roomId = params.room || 'default';
 
@@ -92,6 +123,10 @@ wss.on('connection', (ws, req) => {
 
   // --- Message Handler ---
   ws.on('message', (raw) => {
+    // Rate limit messages
+    const rl = getRateLimiter(ws);
+    if (++rl.count > MAX_MESSAGES_PER_SECOND) return;
+
     let msg;
     try {
       msg = JSON.parse(raw);
@@ -231,6 +266,31 @@ setInterval(() => {
     try { ws.close(); } catch {}
   }
 }, CONFIG.HEARTBEAT_INTERVAL);
+
+// --- Graceful Shutdown ---
+function shutdown(signal) {
+  console.log(`\n  ${signal} received, shutting down gracefully...`);
+
+  // Notify all connected players
+  for (const client of wss.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.close(1001, 'Server shutting down');
+    }
+  }
+
+  wss.close(() => {
+    server.close(() => {
+      console.log('  Server closed.');
+      process.exit(0);
+    });
+  });
+
+  // Force exit after 10s if graceful shutdown stalls
+  setTimeout(() => process.exit(1), 10000);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // --- Start ---
 server.listen(PORT, () => {
