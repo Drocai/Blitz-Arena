@@ -288,8 +288,10 @@ const Renderer = (() => {
   function getOrCreatePlayer(playerId, characterId) {
     if (playerMeshes.has(playerId)) return playerMeshes.get(playerId);
 
-    const texture = createCharacterTexture(characterId);
-    const mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    if (!charTextures[characterId]) {
+      charTextures[characterId] = createCharacterTexture(characterId);
+    }
+    const mat = new THREE.SpriteMaterial({ map: charTextures[characterId], transparent: true });
     const sprite = new THREE.Sprite(mat);
     sprite.scale.set(1.6, 2.4, 1);
     sprite.position.y = 1.2;
@@ -350,6 +352,7 @@ const Renderer = (() => {
   // --- Projectile Management ---
 
   const projTextures = {};
+  const charTextures = {};
 
   function spawnProjectile(id, ownerId, x, z, vx, vz, characterId) {
     if (projectileMeshes.has(id)) return;
@@ -392,6 +395,9 @@ const Renderer = (() => {
     if (data) {
       scene.remove(data.sprite);
       scene.remove(data.trail);
+      data.sprite.material.dispose();
+      data.trail.geometry.dispose();
+      data.trail.material.dispose();
       projectileMeshes.delete(id);
     }
   }

@@ -74,7 +74,6 @@ const GAME_CONFIG = {
     PLAYER_LEFT: 'player_left',
     STATE_UPDATE: 'state_update',
     PROJECTILE_SPAWN: 'projectile_spawn',
-    PROJECTILE_HIT: 'projectile_hit',
     HIT_CONFIRM: 'hit_confirm',
     MATCH_START: 'match_start',
     MATCH_COUNTDOWN: 'match_countdown',

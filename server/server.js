@@ -12,7 +12,7 @@ const url = require('url');
 const RoomManager = require('./roomManager');
 const CONFIG = require('../shared/gameConfig');
 
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT, 10) || 3000;
 const app = express();
 const server = http.createServer(app);
 
@@ -85,7 +85,8 @@ wss.on('connection', (ws, req) => {
   });
 
   const params = url.parse(req.url, true).query;
-  const roomId = params.room || 'default';
+  const rawRoom = params.room || 'default';
+  const roomId = String(rawRoom).slice(0, 64);
 
   // Add player
   const player = rooms.addPlayer(roomId, ws);
