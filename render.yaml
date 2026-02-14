@@ -1,0 +1,11 @@
+services:
+  - type: web
+    runtime: node
+    name: blitz-arena
+    plan: free
+    buildCommand: npm run install:server
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production

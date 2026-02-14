@@ -20,6 +20,11 @@ const server = http.createServer(app);
 app.use(express.static(path.join(__dirname, '..', 'client')));
 app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
 
+// Health check for deployment platforms
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'client', 'index.html'));
