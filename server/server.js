@@ -31,8 +31,22 @@ app.get('*', (req, res) => {
 });
 
 // --- WebSocket Server ---
-const wss = new WebSocketServer({ server });
+const MAX_WS_PAYLOAD_BYTES = 1024;
+const ROOM_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+
+const wss = new WebSocketServer({
+  server,
+  maxPayload: MAX_WS_PAYLOAD_BYTES,
+});
 const rooms = new RoomManager();
+
+function sanitizeRoomId(rawRoom) {
+  const normalized = String(rawRoom || 'default').trim().slice(0, 64);
+  if (!ROOM_ID_PATTERN.test(normalized)) {
+    return 'default';
+  }
+  return normalized;
+}
 
 function send(ws, data) {
   if (ws.readyState === WebSocket.OPEN) {
@@ -85,8 +99,7 @@ wss.on('connection', (ws, req) => {
   });
 
   const params = url.parse(req.url, true).query;
-  const rawRoom = params.room || 'default';
-  const roomId = String(rawRoom).slice(0, 64);
+  const roomId = sanitizeRoomId(params.room);
 
   // Add player
   const player = rooms.addPlayer(roomId, ws);
@@ -126,7 +139,10 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (raw) => {
     // Rate limit messages
     const rl = getRateLimiter(ws);
-    if (++rl.count > MAX_MESSAGES_PER_SECOND) return;
+    if (++rl.count > MAX_MESSAGES_PER_SECOND) {
+      ws.close(1008, 'Rate limit exceeded');
+      return;
+    }
 
     let msg;
     try {
@@ -137,6 +153,7 @@ wss.on('connection', (ws, req) => {
 
     const pid = ws._playerId;
     const rid = ws._roomId;
+    if (!pid || !rid) return;
 
     switch (msg.type) {
       case CONFIG.MSG.MOVE:
