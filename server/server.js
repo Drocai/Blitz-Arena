@@ -281,6 +281,11 @@ setInterval(() => {
       playerId,
       players: getPlayerList(roomId),
     });
+
+    // Prevent duplicate leave broadcasts when ws.close() emits the regular close handler.
+    ws._playerId = null;
+    ws._roomId = null;
+
     try { ws.close(); } catch {}
   }
 }, CONFIG.HEARTBEAT_INTERVAL);
