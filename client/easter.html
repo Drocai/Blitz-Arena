@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Blitz Arena – Easter Egg Hunt</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #1a3a1a;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #easter-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+    }
+
+    #e-float-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 11;
+      pointer-events: none;
+    }
+
+    /* --- HUD --- */
+    #easter-hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 10;
+      pointer-events: none;
+      padding: 10px 16px;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .hud-left, .hud-right { display: flex; flex-direction: column; gap: 6px; }
+    .hud-center { text-align: center; flex: 1; }
+
+    .hud-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .hud-pill .label { font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    #e-score { font-size: 22px; font-weight: 800; color: #FFD700; }
+    #e-wave { color: #87CEEB; }
+    #e-coins { color: #FFD700; }
+
+    #e-combo {
+      font-size: 28px;
+      font-weight: 900;
+      color: #50C878;
+      text-shadow: 0 0 10px rgba(80,200,120,0.5);
+      min-height: 36px;
+      transition: transform 0.1s;
+    }
+    #e-combo.active { display: block; }
+    #e-combo.mega { color: #FFD700; text-shadow: 0 0 15px rgba(255,215,0,0.7); animation: comboPulse 0.3s ease infinite alternate; }
+
+    @keyframes comboPulse { to { transform: scale(1.1); } }
+
+    .combo-bar-wrap {
+      width: 100px;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 2px auto 0;
+    }
+    #e-combo-bar {
+      height: 100%;
+      background: #50C878;
+      border-radius: 2px;
+      transition: width 0.1s linear;
+    }
+
+    #e-hp { display: flex; gap: 2px; }
+    .heart { font-size: 18px; }
+    .heart.empty { opacity: 0.3; }
+
+    #e-powerup-bar {
+      font-size: 12px;
+      font-weight: 600;
+      color: #FF4500;
+      min-height: 18px;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    #e-powerup-bar.active { opacity: 1; }
+
+    /* --- Boss HP Bar --- */
+    #e-boss-bar {
+      position: fixed;
+      top: 60px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 12;
+      width: 300px;
+      max-width: 80vw;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    #e-boss-bar.visible { display: flex; }
+    #e-boss-name { font-size: 13px; font-weight: 700; color: #9B59B6; text-shadow: 0 0 8px rgba(155,89,182,0.5); }
+    .boss-hp-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(155,89,182,0.3);
+    }
+    #e-boss-hp-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #9B59B6, #E74C3C);
+      border-radius: 4px;
+      transition: width 0.15s;
+    }
+
+    /* --- Center Messages --- */
+    #e-center-msg {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #e-center-msg.visible { opacity: 1; }
+    #e-center-title {
+      font-size: 48px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 20px rgba(80,200,120,0.6);
+      margin-bottom: 6px;
+    }
+    #e-center-sub {
+      font-size: 18px;
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* --- Vignette (low HP / boss warning) --- */
+    #e-vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 9;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #e-vignette.active { opacity: 1; }
+
+    /* --- Missions HUD (in-game) --- */
+    #e-missions-hud {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .mission-hud-item {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      background: rgba(0,0,0,0.4);
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .mission-hud-item.done { color: #50C878; text-decoration: line-through; opacity: 0.6; }
+    .mh-check { font-size: 10px; }
+
+    /* --- Pre-Run Screen --- */
+    #e-prerun {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(10,20,10,0.95);
+      gap: 20px;
+      padding: 20px;
+    }
+    #e-prerun.visible { display: flex; }
+
+    .prerun-title {
+      font-size: 36px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #50C878, #FFD700);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .prerun-section {
+      width: 100%;
+      max-width: 400px;
+    }
+    .prerun-section h3 {
+      font-size: 14px;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .mission-item {
+      font-size: 13px;
+      color: rgba(255,255,255,0.8);
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mission-icon { font-size: 14px; }
+    .mission-reward { margin-left: auto; color: #FFD700; font-size: 11px; font-weight: 600; }
+
+    #e-modifier-list {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .modifier-btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: #fff;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      text-align: center;
+      min-width: 120px;
+    }
+    .modifier-btn:hover { border-color: rgba(80,200,120,0.4); background: rgba(80,200,120,0.08); }
+    .modifier-btn.selected { border-color: #50C878; background: rgba(80,200,120,0.15); }
+    .mod-name { font-size: 13px; font-weight: 700; }
+    .mod-desc { font-size: 11px; opacity: 0.5; margin-top: 2px; }
+
+    .prerun-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+    #e-start-btn, #e-restart-btn {
+      pointer-events: auto;
+      padding: 14px 36px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #50C878, #2E8B57);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 20px rgba(80,200,120,0.3);
+    }
+    #e-start-btn:hover, #e-restart-btn:hover { transform: scale(1.05); }
+    #e-start-btn:active, #e-restart-btn:active { transform: scale(0.96); }
+
+    #e-progress-btn {
+      pointer-events: auto;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #FFD700;
+      background: rgba(255,215,0,0.1);
+      border: 1px solid rgba(255,215,0,0.3);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #e-progress-btn:hover { background: rgba(255,215,0,0.2); }
+
+    #e-menu-btn {
+      pointer-events: auto;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    /* --- Game Over Screen --- */
+    #e-gameover {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(6px);
+      gap: 12px;
+      padding: 20px;
+    }
+    #e-gameover.visible { display: flex; }
+
+    .go-title {
+      font-size: 42px;
+      font-weight: 900;
+      color: #FF6347;
+      text-shadow: 0 0 20px rgba(255,99,71,0.5);
+    }
+
+    .go-stats {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 4px 16px;
+      font-size: 16px;
+      color: rgba(255,255,255,0.8);
+    }
+    .go-stats .label { text-align: right; opacity: 0.5; }
+    .go-stats .value { font-weight: 700; }
+    .go-stats .value.gold { color: #FFD700; }
+    .go-stats .value.green { color: #50C878; }
+
+    #e-go-missions {
+      width: 100%;
+      max-width: 340px;
+      margin-top: 4px;
+    }
+    .mission-result {
+      font-size: 13px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-bottom: 3px;
+    }
+    .mission-result.done { color: #50C878; background: rgba(80,200,120,0.1); }
+    .mission-result.fail { color: rgba(255,255,255,0.35); }
+    .mission-result .mission-reward { color: #FFD700; margin-left: 6px; font-weight: 600; }
+
+    .go-btns { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+
+    /* --- Progress Panel --- */
+    #e-progress-panel {
+      position: fixed;
+      inset: 0;
+      z-index: 35;
+      display: none;
+      flex-direction: column;
+      background: rgba(10,20,10,0.97);
+      padding: 20px;
+      overflow-y: auto;
+    }
+    #e-progress-panel.visible { display: flex; }
+
+    .prog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .prog-title { font-size: 24px; font-weight: 800; color: #FFD700; }
+    #e-progress-coins { font-size: 18px; font-weight: 700; color: #FFD700; }
+    #e-progress-close {
+      pointer-events: auto;
+      font-size: 24px;
+      color: rgba(255,255,255,0.5);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
+    .prog-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .prog-tab {
+      pointer-events: auto;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .prog-tab.active {
+      color: #50C878;
+      border-color: #50C878;
+      background: rgba(80,200,120,0.1);
+    }
+
+    .prog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+    }
+
+    .egg-item, .upgrade-item, .badge-item {
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      text-align: center;
+    }
+    .egg-item.selected { border-color: #50C878; background: rgba(80,200,120,0.1); }
+    .egg-item.locked { opacity: 0.5; }
+    .egg-preview {
+      width: 40px; height: 50px;
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      margin: 0 auto 8px;
+    }
+    .egg-name, .upgrade-name, .badge-name { font-size: 13px; font-weight: 600; color: #fff; }
+    .egg-cost { font-size: 11px; color: #FFD700; margin: 4px 0; }
+    .egg-status { font-size: 11px; color: #50C878; }
+
+    .egg-select-btn, .egg-buy-btn, .upgrade-buy-btn {
+      pointer-events: auto;
+      margin-top: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid rgba(80,200,120,0.4);
+      background: rgba(80,200,120,0.1);
+      color: #50C878;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .egg-buy-btn, .upgrade-buy-btn { color: #FFD700; border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.1); }
+
+    .upgrade-desc { font-size: 11px; color: rgba(255,255,255,0.4); margin: 4px 0; }
+    .upgrade-level { font-size: 12px; color: #87CEEB; }
+    .upgrade-maxed { font-size: 11px; color: #50C878; font-weight: 600; margin-top: 4px; }
+
+    .badge-item { opacity: 0.4; }
+    .badge-item.earned { opacity: 1; border-color: rgba(255,215,0,0.2); }
+    .badge-icon { font-size: 24px; margin-bottom: 4px; }
+    .badge-desc { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+
+    /* --- Mobile Controls --- */
+    #e-mobile-controls {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 40vh;
+      z-index: 12;
+      display: none;
+      pointer-events: none;
+    }
+    #e-mobile-controls.active {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 0 20px 30px;
+    }
+    .e-joystick-zone {
+      width: 140px;
+      height: 140px;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .e-joystick-zone canvas { opacity: 0.5; }
+
+    @media (max-width: 640px) {
+      #e-center-title { font-size: 32px; }
+      .prerun-title { font-size: 28px; }
+      .go-title { font-size: 32px; }
+      .prog-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="easter-canvas"></canvas>
+  <canvas id="e-float-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="easter-hud">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="hud-pill"><span class="label">Score</span> <span id="e-score">0</span></div>
+        <div class="hud-pill" id="e-wave">Wave 1</div>
+        <div id="e-hp"></div>
+      </div>
+      <div class="hud-center">
+        <div id="e-combo"></div>
+        <div class="combo-bar-wrap"><div id="e-combo-bar"></div></div>
+        <div id="e-powerup-bar"></div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-pill"><span class="label">Coins</span> <span id="e-coins">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Boss HP Bar -->
+  <div id="e-boss-bar">
+    <div id="e-boss-name"></div>
+    <div class="boss-hp-track"><div id="e-boss-hp-fill"></div></div>
+  </div>
+
+  <!-- Center Messages -->
+  <div id="e-center-msg">
+    <h1 id="e-center-title"></h1>
+    <p id="e-center-sub"></p>
+  </div>
+
+  <!-- Vignette -->
+  <div id="e-vignette"></div>
+
+  <!-- Missions HUD -->
+  <div id="e-missions-hud"></div>
+
+  <!-- Pre-Run Screen -->
+  <div id="e-prerun" class="visible">
+    <div class="prerun-title">Easter Egg Hunt</div>
+
+    <div class="prerun-section">
+      <h3>Missions</h3>
+      <div id="e-mission-list"></div>
+    </div>
+
+    <div class="prerun-section">
+      <h3>Run Modifier</h3>
+      <div id="e-modifier-list"></div>
+    </div>
+
+    <div class="prerun-btns">
+      <button id="e-start-btn">Start Run</button>
+      <button id="e-progress-btn">Upgrades &amp; Unlocks</button>
+    </div>
+  </div>
+
+  <!-- Game Over -->
+  <div id="e-gameover">
+    <div class="go-title">Game Over</div>
+    <div class="go-stats">
+      <span class="label">Score</span><span class="value gold" id="e-go-score">0</span>
+      <span class="label">Wave</span><span class="value green" id="e-go-wave">0</span>
+      <span class="label">Coins</span><span class="value gold" id="e-go-coins">+0</span>
+      <span class="label">Best</span><span class="value" id="e-go-highscore">0</span>
+    </div>
+    <div id="e-go-missions"></div>
+    <div class="go-btns">
+      <button id="e-restart-btn">Play Again</button>
+      <button id="e-menu-btn">Menu</button>
+    </div>
+  </div>
+
+  <!-- Progress Panel -->
+  <div id="e-progress-panel">
+    <div class="prog-header">
+      <span class="prog-title">Collection</span>
+      <span>Coins: <span id="e-progress-coins">0</span></span>
+      <button id="e-progress-close">&times;</button>
+    </div>
+    <div class="prog-tabs">
+      <button class="prog-tab active" id="e-tab-eggs">Eggs</button>
+      <button class="prog-tab" id="e-tab-upgrades">Upgrades</button>
+      <button class="prog-tab" id="e-tab-badges">Badges</button>
+    </div>
+    <div class="prog-grid" id="e-eggs-grid"></div>
+    <div class="prog-grid" id="e-upgrades-grid" style="display:none"></div>
+    <div class="prog-grid" id="e-badges-grid" style="display:none"></div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="e-mobile-controls">
+    <div id="e-move-zone" class="e-joystick-zone"></div>
+    <div id="e-aim-zone" class="e-joystick-zone"></div>
+  </div>
+
+  <!-- Scripts (load order matters) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/shared/easterConfig.js"></script>
+  <script src="easterProgress.js"></script>
+  <script src="easterMissions.js"></script>
+  <script src="easterEnemies.js"></script>
+  <script src="easterBoss.js"></script>
+  <script src="easterRenderer.js"></script>
+  <script src="easterUI.js"></script>
+  <script src="easterGame.js"></script>
+</body>
+</html>

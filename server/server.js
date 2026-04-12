@@ -25,6 +25,14 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// Mode-specific pages
+app.get('/valentine.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'client', 'valentine.html'));
+});
+app.get('/easter.html', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'client', 'easter.html'));
+});
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'client', 'index.html'));
